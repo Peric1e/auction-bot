@@ -1,0 +1,19 @@
+{
+  "name": "auction-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "grammy": "^1.42.0",
+    "node-cron": "^4.2.1"
+  }
+}
