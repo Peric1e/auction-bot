@@ -111,8 +111,22 @@ bot.on("edited_message", async (ctx) => {
   const active = getActiveAuction();
   if (!active) return;
 
+  const userId = ctx.from.id;
+  const username = ctx.from.username || ctx.from.first_name;
+  const messageId = ctx.editedMessage.message_id;
+
+  // If the message is deleted
   if (!ctx.editedMessage.text) {
-    registerDeletedBid(ctx.from.id);
+    registerDeletedBid(userId);
+    
+    await bot.api.sendMessage(
+      ctx.chat.id,
+      `⚠️ @${username}, ви видалили вашу ставку!\n\nВи заблоковані в поточному аукціоні та не зможете робити нові ставки.`,
+      {
+        reply_parameters: { message_id: messageId },
+        parse_mode: "HTML",
+      }
+    );
   }
 });
 
