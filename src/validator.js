@@ -1,6 +1,4 @@
-export function validateBid(text, currentPrice, auction, userHasDeleted, lastBidUserId, userId) {
-  if (userHasDeleted) return { valid: false, reason: "blocked" };
-
+export function validateBid(text, currentPrice, auction, lastBidUserId, userId) {
   const amount = Number(text?.match(/^\d+$/)?.[0]);
   if (!amount) return { valid: false, reason: "not_a_bid" };
 
@@ -8,15 +6,12 @@ export function validateBid(text, currentPrice, auction, userHasDeleted, lastBid
     return { valid: false, reason: "own_bid" };
   }
 
-  const minAllowed = currentPrice === auction.startPrice
-    ? auction.startPrice
-    : currentPrice + auction.minStep;
+  const isFirstBid = lastBidUserId === null;
+  const minAllowed = isFirstBid ? auction.startPrice : currentPrice + auction.minStep;
+  const maxAllowed = isFirstBid ? auction.startPrice : currentPrice + (auction.maxStep ?? Infinity);
 
   if (amount < minAllowed) return { valid: false, reason: "too_low" };
-
-  if (auction.maxStep && amount > currentPrice + auction.maxStep) {
-    return { valid: false, reason: "too_high" };
-  }
+  if (amount > maxAllowed) return { valid: false, reason: "too_high" };
 
   return { valid: true, amount };
 }

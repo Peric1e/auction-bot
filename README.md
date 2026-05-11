@@ -1,6 +1,6 @@
-# 🔨 Auction Bot for Telegram
+# Auction Bot
 
-A Telegram bot that automates knife auction management in Telegram channels. It monitors bids in comments, validates them by auction rules, reacts to valid bids, and announces the winner when the auction ends.
+A Telegram bot for automating knife auctions in channels. Monitors bids in comments, validates them against auction rules, reacts to valid bids with ❤️, and announces the winner when the auction ends.
 
 ---
 
@@ -10,102 +10,49 @@ A Telegram bot that automates knife auction management in Telegram channels. It 
 2. Bot detects the post and parses the rules (start price, min/max bid step, end time)
 3. Users place bids in the linked discussion group comments
 4. Bot validates each bid and reacts with ❤️ to valid ones
-5. At the end time, bot announces the winner in comments and notifies the owner in DM
+5. At the end time - announces the winner in comments and notifies the owner in DM
+6. Owner can cancel an active auction early with `/stop`
 
 ---
 
-## Features
-
-- Automatic auction detection from channel posts
-- Bid validation:
-  - Minimum bid step enforced
-  - Maximum bid step enforced
-  - Users cannot outbid themselves
-  - Users who delete bids are blocked for the current auction
-- Winner announcement in comments (reply to winning bid)
-- Owner notification in DM with winner's username and amount
-- Original auction post forwarded to owner on completion
-- `/stop` command for owner to cancel an active auction
-
----
-
-## Requirements
+## Stack
 
 - Node.js v18+
-- Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
-- A Telegram channel with a linked discussion group
+- [grammY](https://grammy.dev) - Telegram Bot framework
+- [node-cron](https://github.com/node-cron/node-cron) - auction end time scheduler
 
 ---
 
 ## Setup
 
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/auction-bot.git
-cd auction-bot
-```
-
-### 2. Install dependencies
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Configure environment variables
-
-Create a `.env` file in the root directory:
+### 2. Create `.env` in the project root
 
 ```
 BOT_TOKEN=your_telegram_bot_token
 OWNER_TELEGRAM_ID=your_telegram_user_id
+TZ=your time zone
 ```
 
-To get your Telegram ID, message [@userinfobot](https://t.me/userinfobot).
+You can get your Telegram ID from [@userinfobot](https://t.me/userinfobot).
 
-### 4. Run the bot
+### 3. Run
 
 ```bash
-# Development (auto-restart on file changes)
-npm run dev
-
-# Production
-npm start
+npm run dev    # development (auto-restart)
+npm start      # production
 ```
-
----
-
-## Bot Setup in Telegram
-
-### Disable Privacy Mode
-
-1. Open [@BotFather](https://t.me/BotFather)
-2. Send `/mybots` → select your bot
-3. Go to **Bot Settings** → **Group Privacy** → **Turn off**
-
-### Add Bot to Your Channel
-
-1. Open your channel settings
-2. Go to **Administrators** → **Add Administrator**
-3. Search for your bot and add it
-4. Grant permissions: **Post Messages**, **Edit Messages**
-
-### Add Bot to the Discussion Group
-
-1. Open your linked discussion group settings
-2. Go to **Administrators** → **Add Administrator**
-3. Search for your bot and add it
-4. Grant permissions: **Send Messages**, **Delete Messages**
-
-### Activate the Bot
-
-Send `/start` to your bot in a private message — this registers you as the owner so the bot knows where to send winner notifications.
 
 ---
 
 ## Auction Post Format
 
-The bot automatically detects auction posts containing the words **"аукціон"** and **"починаємо"**. Example:
+The bot detects posts containing the words **"аукціон"** and **"починаємо"**:
 
 ```
 🚨 Аукціон 🚨
@@ -115,14 +62,12 @@ The bot automatically detects auction posts containing the words **"аукціо
 Час закінчення 15:01
 ```
 
-The bot parses:
-
-| Field | Example | Pattern |
-|---|---|---|
-| Start price | `500 грн` | `Починаємо {number}` |
-| Min step | `100 грн` | `Мінімальний крок ... {number}` |
-| Max step | `300 грн` | `перевищувати {number}` |
-| End time | `15:01` | `Час закінчення {HH:MM}` |
+| Field | Pattern |
+|---|---|
+| Start price | `Починаємо {number}` |
+| Min step | `Мінімальний крок ... {number}` |
+| Max step | `перевищувати {number}` |
+| End time | `Час закінчення {HH:MM}` |
 
 ---
 
@@ -131,38 +76,35 @@ The bot parses:
 ```
 auction-bot/
 ├── src/
-│   ├── index.js       # Entry point, bot setup, event handlers
+│   ├── index.js       # Entry point, bot initialization
+│   ├── auction.js     # Auction state, lifecycle, cancellation
 │   ├── parser.js      # Parses auction rules from post text
-│   ├── validator.js   # Validates incoming bids
-│   └── auction.js     # Auction state management and lifecycle
-├── .env               # Environment variables (never commit this)
+│   ├── validator.js   # Bid validation logic
+│   ├── logger.js      # Event logging
+│   └── handlers/
+│       ├── channelPost.js   # Channel post handler
+│       ├── message.js       # Bid handler in group comments
+│       ├── editedMessage.js # Edited message handler
+│       └── commands.js      # Commands (/start, /stop)
+├── .env
 ├── .gitignore
 └── package.json
 ```
 
 ---
 
-## Deployment
+## Deployment on Railway
 
-See [Railway deployment guide](https://docs.railway.app) for free hosting.
-
-Set the following environment variables in Railway dashboard:
-- `BOT_TOKEN`
-- `OWNER_TELEGRAM_ID`
+1. Push the repository to GitHub
+2. Create a new project on [railway.app](https://railway.app)
+3. Add environment variables: `BOT_TOKEN`, `OWNER_TELEGRAM_ID`, `TZ`
+4. Railway will run `npm start` automatically
 
 ---
 
 ## .gitignore
 
-Make sure your `.env` is never committed:
-
-```
 node_modules/
 .env
-```
-
----
-
-## License
-
-MIT
+unit-tests.js
+logs/
