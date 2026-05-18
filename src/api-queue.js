@@ -3,7 +3,7 @@ import PQueue from "p-queue";
 export const apiQueue = new PQueue({
   concurrency: 1,
   interval: 1000,
-  maxSize: 30,
+  maxSize: 100,
   timeout: 5000
 });
 

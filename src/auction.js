@@ -3,7 +3,7 @@ import { logEvent, logAuctionFinish } from "./logger.js";
 
 let activeAuction = null;
 let activeJob = null;
-const AUCTION_TIMEOUT = 30000;
+const AUCTION_TIMEOUT = 60000;
 
 export function getActiveAuction() {
   return activeAuction;
@@ -17,7 +17,7 @@ export function setGroupChatId(chatId, groupPostMessageId) {
   }
 }
 
-export function startAuction(auction, postMessageId, chatId, bot, ownerChatId) {
+export function startAuction(auction, postMessageId, chatId, bot, ownerChatId, contactUsername) {
   if (activeAuction) {
     logEvent("⚠️ AUCTION_SKIP", "Аукціон вже активний, пропускаємо");
     return;
@@ -35,6 +35,7 @@ export function startAuction(auction, postMessageId, chatId, bot, ownerChatId) {
 
   activeAuction = {
     ...auction,
+    contactUsername,
     postMessageId,
     chatId,
     groupChatId: null,
@@ -128,7 +129,7 @@ async function finishAuction(bot, ownerChatId) {
           () => bot.api.sendMessage(
             groupChatId,
             `🎉 Вітаємо, @${lastValidBid.username}! Ви перемогли зі ставкою ${lastValidBid.amount} грн!\n\n` +
-            `З вами зв'яжуться з цього акаунту @corporateSava`,
+            `З вами зв'яжуться з цього акаунту @${activeAuction.contactUsername}`,
             {
               reply_parameters: { message_id: lastValidBid.messageId },
               parse_mode: "HTML",

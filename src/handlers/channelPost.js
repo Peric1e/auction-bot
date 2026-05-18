@@ -2,7 +2,7 @@ import { parseAuction } from "../parser.js";
 import { startAuction, getActiveAuction } from "../auction.js";
 import { logParsing, logAuctionStart, logEvent } from "../logger.js";
 
-export function setupChannelPost(bot, OWNER_ID) {
+export function setupChannelPost(bot, OWNER_ID, CONTACT_USERNAME) {
   bot.on("channel_post", async (ctx) => {
     // Ignore edited posts
     if (ctx.channelPost.edit_date) {
@@ -25,7 +25,7 @@ export function setupChannelPost(bot, OWNER_ID) {
 
     if (auction) {
       logAuctionStart(auction);
-      await startAuction(auction, messageId, chatId, bot, OWNER_ID);
+      await startAuction(auction, messageId, chatId, bot, OWNER_ID, CONTACT_USERNAME);
     }
   });
 }
