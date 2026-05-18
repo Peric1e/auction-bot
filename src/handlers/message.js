@@ -5,17 +5,18 @@ import {
   setGroupChatId,
 } from "../auction.js";
 import { logBid, logTiming, logEvent } from "../logger.js";
+import { apiQueue } from "../api-queue.js"; 
 
 async function sendBidErrorMessage(bot, chatId, replyToMessageId, text) {
   try {
-    await bot.api.sendMessage(chatId, text, {
-      reply_parameters: { message_id: replyToMessageId },
-      parse_mode: "HTML",
+    await apiQueue.add(async () => {
+      await bot.api.sendMessage(chatId, text, {
+        reply_parameters: { message_id: replyToMessageId },
+        parse_mode: "HTML",
+      });
     });
   } catch (e) {
-    logEvent("⚠️ SEND_ERROR", "Помилка при відправці повідомлення про помилку ставки", {
-      error: e.message,
-    });
+    logEvent("⚠️ SEND_ERROR", "Помилка при відправці", { error: e.message });
   }
 }
 
@@ -56,33 +57,43 @@ export function setupMessage(bot) {
       registerBid(userId, username, result.amount, messageId);
       logBid(username, result.amount, true);
 
-      try {
-        const reactionStartTime = Date.now();
-        await bot.api.setMessageReaction(chat.id, messageId, [
-          { type: "emoji", emoji: "❤️" },
-        ]);
-        logTiming("setMessageReaction", Date.now() - reactionStartTime);
-      } catch (e) {
-        logEvent("❌ REACTION_ERROR", "Помилка реакції", {
-          error: e.message,
-          chatId: chat.id,
-          messageId: messageId,
-        });
+      apiQueue.add(async () => {
+        try {
+          const reactionStartTime = Date.now();
+          await bot.api.setMessageReaction(chat.id, messageId, [
+            { type: "emoji", emoji: "❤️" },
+          ]);
+          logTiming("setMessageReaction", Date.now() - reactionStartTime);
+        } catch (e) {
+          logEvent("❌ REACTION_ERROR", "Помилка реакції", {
+            error: e.message,
+          });
+        }
+      });
+    } else if (result.reason === "too_high" || result.reason === "too_low") {
+      const isFirstBid = active.lastValidBid === null;
+      if (isFirstBid) {
+        logBid(username, text, false, "wrong_first_bid");
+        await sendBidErrorMessage(
+          bot, chat.id, messageId,
+          `⚠️ @${username}, перша ставка повинна дорівнювати стартовій ціні!\n` +
+          `Стартова ціна: <code>${active.startPrice} грн</code>`
+        );
+      } else if (result.reason === "too_high") {
+        logBid(username, text, false, "too_high");
+        await sendBidErrorMessage(
+          bot, chat.id, messageId,
+          `⚠️ @${username}, ставка перевищує максимальний крок!\n` +
+          `Максимальна ставка зараз: <code>${active.currentPrice + active.maxStep} грн</code>`
+        );
+      } else {
+        logBid(username, text, false, "too_low");
+        await sendBidErrorMessage(
+          bot, chat.id, messageId,
+          `⚠️ @${username}, ставка занадто мала!\n` +
+          `Мінімальна ставка зараз: <code>${active.currentPrice + active.minStep} грн</code>`
+        );
       }
-    } else if (result.reason === "too_high") {
-      logBid(username, text, false, "too_high");
-      await sendBidErrorMessage(
-        bot, chat.id, messageId,
-        `⚠️ @${username}, ставка перевищує максимальний крок!\n` +
-        `Максимальна ставка зараз: <code>${active.currentPrice + active.maxStep} грн</code>`
-      );
-    } else if (result.reason === "too_low") {
-      logBid(username, text, false, "too_low");
-      await sendBidErrorMessage(
-        bot, chat.id, messageId,
-        `⚠️ @${username}, ставка занадто мала!\n` +
-        `Мінімальна ставка зараз: <code>${active.currentPrice + active.minStep} грн</code>`
-      );
     } else if (result.reason === "own_bid") {
       logBid(username, text, false, "own_bid");
       await sendBidErrorMessage(

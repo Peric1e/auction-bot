@@ -83,31 +83,49 @@ export function cancelAuction() {
   return true;
 }
 
+async function sendWithRetry(fn, label, retries = 3, delayMs = 2000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      logEvent(`❌ ${label}`, `Спроба ${attempt}/${retries}`, { error: e.message });
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  logEvent(`❌ ${label}`, "Всі спроби вичерпано, повідомлення не відправлено");
+}
+
 async function finishAuction(bot, ownerChatId) {
+  if (!activeAuction) return;
+
+  // Grace period
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   if (!activeAuction) return;
 
   const { lastValidBid, chatId, groupChatId, postMessageId } = activeAuction;
 
   try {
     if (lastValidBid) {
-      try {
-        await bot.api.sendMessage(
+      await sendWithRetry(
+        () => bot.api.sendMessage(
           ownerChatId,
           `🏆 Аукціон завершено!\n\nПереможець: @${lastValidBid.username}\nСтавка: ${lastValidBid.amount} грн`
-        );
-      } catch (e) {
-        logEvent("❌ SEND_ERROR", "Помилка відправки повідомлення власнику", { error: e.message });
-      }
+        ),
+        "SEND_WINNER_OWNER"
+      );
 
-      try {
-        await bot.api.forwardMessage(ownerChatId, chatId, postMessageId);
-      } catch (e) {
-        logEvent("❌ FORWARD_ERROR", "Помилка пересилки поста", { error: e.message });
-      }
+      await sendWithRetry(
+        () => bot.api.forwardMessage(ownerChatId, chatId, postMessageId),
+        "FORWARD_POST"
+      );
 
       if (groupChatId) {
-        try {
-          await bot.api.sendMessage(
+        await sendWithRetry(
+          () => bot.api.sendMessage(
             groupChatId,
             `🎉 Вітаємо, @${lastValidBid.username}! Ви перемогли зі ставкою ${lastValidBid.amount} грн!\n\n` +
             `З вами зв'яжуться з цього акаунту @corporateSava`,
@@ -115,19 +133,17 @@ async function finishAuction(bot, ownerChatId) {
               reply_parameters: { message_id: lastValidBid.messageId },
               parse_mode: "HTML",
             }
-          );
-        } catch (e) {
-          logEvent("❌ ANNOUNCE_ERROR", "Помилка оголошення переможця", { error: e.message });
-        }
+          ),
+          "ANNOUNCE_WINNER_GROUP"
+        );
       }
 
       logAuctionFinish(lastValidBid);
     } else {
-      try {
-        await bot.api.sendMessage(ownerChatId, "⚠️ Аукціон завершено, але ставок не було.");
-      } catch (e) {
-        logEvent("❌ SEND_ERROR", "Помилка відправки повідомлення про відсутність ставок", { error: e.message });
-      }
+      await sendWithRetry(
+        () => bot.api.sendMessage(ownerChatId, "⚠️ Аукціон завершено, але ставок не було."),
+        "SEND_NO_BIDS"
+      );
     }
   } catch (e) {
     logEvent("❌ FINISH_AUCTION_ERROR", "Критична помилка завершення аукціону", { error: e.message });
