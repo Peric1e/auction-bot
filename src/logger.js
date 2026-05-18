@@ -8,7 +8,6 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR);
 }
 
-// Удаляем файлы логов старше 7 дней
 function rotateLogs() {
   const files = fs.readdirSync(LOG_DIR);
   const cutoff = Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
@@ -47,11 +46,14 @@ export function logEvent(type, message, data = null) {
 }
 
 export function logParsing(text, result) {
-  if (result) {
-    logEvent("✅ AUCTION_FOUND", "Аукціон розпізнаний", result);
-  } else {
+  if (!result) {
     const preview = text?.slice(0, 50).replace(/\n/g, " ") + "...";
     logEvent("❌ NOT_AUCTION", preview);
+  } else if (result._parseError) {
+    const preview = text?.slice(0, 50).replace(/\n/g, " ") + "...";
+    logEvent("⚠️ PARSE_ERROR", result._parseError, { preview });
+  } else {
+    logEvent("✅ AUCTION_FOUND", "Аукціон розпізнаний", result);
   }
 }
 
