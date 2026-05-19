@@ -39,4 +39,26 @@ export function setupCommands(bot, OWNER_ID) {
     await ctx.reply("🛑 Аукціон скасовано.");
     logEvent("⏹️ STOP", "Аукціон скасовано власником");
   });
+
+  bot.command("status", async (ctx) => {
+  if (ctx.from.id.toString() !== OWNER_ID) return;
+
+  const active = getActiveAuction();
+
+  if (!active) {
+    await ctx.reply("⚪️ Аукціон не активний.");
+    return;
+  }
+
+  const { currentPrice, lastValidBid, endTime, startPrice } = active;
+
+  await ctx.reply(
+    `🟢 Аукціон активний\n\n` +
+    `⏰ Завершення: ${endTime}\n` +
+    `💰 Стартова ціна: ${startPrice} грн\n` +
+    `📈 Поточна ставка: ${currentPrice} грн\n` +
+    `👤 Лідер: ${lastValidBid ? `@${lastValidBid.username}` : "ставок ще немає"}`
+  );
+});
+
 }

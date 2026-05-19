@@ -19,7 +19,9 @@ export function setupChannelPost(bot, OWNER_ID, CONTACT_USERNAME) {
     const text = ctx.channelPost.text || ctx.channelPost.caption;
     const messageId = ctx.channelPost.message_id;
     const chatId = ctx.chat.id;
+    const chatTitle = ctx.chat.title ?? "—";
 
+    logEvent("📨 CHANNEL_POST", `Пост з каналу`, { chatId, chatTitle });
     const auction = parseAuction(text);
     logParsing(text, auction);
 
