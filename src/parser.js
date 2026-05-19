@@ -10,6 +10,13 @@ export function parseAuction(text) {
   const maxStep = text.match(/перевищувати[:\s]+(\d+)/i)?.[1];
   const endTime = text.match(/час\s+закінчення[:\s]+(\d{1,2}:\d{2})/i)?.[1];
 
+if (endTime) {
+  const [h, m] = endTime.split(":").map(Number);
+  if (h > 23 || m > 59) {
+    return { _parseError: `Невалідний час: ${endTime}` };
+  }
+}
+
   if (!startPrice || !endTime) {
     const missing = [];
     if (!startPrice) missing.push("startPrice");
