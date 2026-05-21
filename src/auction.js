@@ -1,5 +1,25 @@
 import cron from "node-cron";
 import { logEvent, logAuctionFinish } from "./logger.js";
+import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
+
+const STATE_FILE = "./auction-state.json";
+
+function saveState() {
+  if (!activeAuction) return;
+  try {
+    writeFileSync(STATE_FILE, JSON.stringify(activeAuction));
+  } catch (e) {
+    logEvent("⚠️ STATE_SAVE_ERROR", "Не вдалося зберегти стан", { error: e.message });
+  }
+}
+
+function clearState() {
+  try {
+    if (existsSync(STATE_FILE)) unlinkSync(STATE_FILE);
+  } catch (e) {
+    logEvent("⚠️ STATE_CLEAR_ERROR", "Не вдалося видалити стан", { error: e.message });
+  }
+}
 
 let activeAuction = null;
 let activeJob = null;
@@ -45,6 +65,8 @@ export function startAuction(auction, postMessageId, chatId, bot, ownerChatId, c
     isCancelled: false,
   };
 
+  saveState();
+
   activeJob = cron.schedule(`${minute} ${hour} * * *`, async () => {
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("finishAuction timeout exceeded")), AUCTION_TIMEOUT)
@@ -68,6 +90,7 @@ export function registerBid(userId, username, amount, messageId) {
   if (!activeAuction) return;
   activeAuction.currentPrice = amount;
   activeAuction.lastValidBid = { userId, username, amount, messageId };
+  saveState();
 }
 
 export function cancelAuction() {
@@ -80,8 +103,50 @@ export function cancelAuction() {
 
   activeAuction.isCancelled = true;
   activeAuction = null;
+  clearState();
 
   return true;
+}
+
+export function restoreAuction(bot, ownerChatId) {
+  try {
+    if (!existsSync(STATE_FILE)) return;
+
+    const saved = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+    const [hour, minute] = saved.endTime.split(":");
+    const endDate = new Date();
+    endDate.setHours(Number(hour), Number(minute), 0, 0);
+
+    if (endDate <= new Date()) {
+      logEvent("⚠️ RESTORE_SKIP", "Аукціон з файлу вже завершився", { endTime: saved.endTime });
+      clearState();
+      return;
+    }
+
+    activeAuction = saved;
+    activeJob = cron.schedule(`${minute} ${hour} * * *`, async () => {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("finishAuction timeout exceeded")), AUCTION_TIMEOUT)
+      );
+      try {
+        await Promise.race([finishAuction(bot, ownerChatId), timeoutPromise]);
+      } catch (e) {
+        logEvent("❌ CRON_ERROR", "Помилка при завершенні аукціону", { error: e.message });
+        activeAuction = null;
+      } finally {
+        if (activeJob) { activeJob.stop(); activeJob = null; }
+      }
+    });
+
+    logEvent("♻️ RESTORE", "Аукціон відновлено після рестарту", {
+      endTime: saved.endTime,
+      currentPrice: saved.currentPrice,
+      lastBid: saved.lastValidBid?.username ?? "немає",
+    });
+  } catch (e) {
+    logEvent("⚠️ RESTORE_ERROR", "Не вдалося відновити стан", { error: e.message });
+    clearState();
+  }
 }
 
 async function sendWithRetry(fn, label, retries = 3, delayMs = 2000) {
@@ -150,5 +215,6 @@ async function finishAuction(bot, ownerChatId) {
     logEvent("❌ FINISH_AUCTION_ERROR", "Критична помилка завершення аукціону", { error: e.message });
   } finally {
     activeAuction = null;
+    clearState();
   }
 }

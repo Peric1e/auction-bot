@@ -4,6 +4,7 @@ import { setupCommands } from "./handlers/commands.js";
 import { setupChannelPost } from "./handlers/channelPost.js";
 import { setupMessage } from "./handlers/message.js";
 import { logEvent } from "./logger.js";
+import { restoreAuction } from "./auction.js";
 
 config();
 
@@ -19,6 +20,7 @@ if (!CONTACT_USERNAME) {
 }
 
 logEvent("🤖 BOT", "Бот стартував");
+restoreAuction(bot, OWNER_ID);
 
 setupCommands(bot, OWNER_ID);
 setupChannelPost(bot, OWNER_ID, CONTACT_USERNAME);
